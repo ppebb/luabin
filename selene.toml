@@ -1,0 +1,2 @@
+[lints]
+multiple_statements = "allow"
