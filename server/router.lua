@@ -73,18 +73,18 @@ function M:match(server, headers, stream)
 
     local sanitized = utils.sanitize(req_path)
 
-    for pattern, file in pairs(self.static_links) do
-        if string.match(sanitized, pattern) then
-            serve_file(file)
-            return
-        end
-    end
-
     for _, dir in ipairs(self.static_paths) do
         local path = utils.path_combine(dir, sanitized)
         local ft = lfs.attributes(path, "mode")
         if ft ~= "directory" and utils.file_exists(path) then
             serve_file(path)
+            return
+        end
+    end
+
+    for pattern, file in pairs(self.static_links) do
+        if string.match(sanitized, pattern) then
+            serve_file(file)
             return
         end
     end

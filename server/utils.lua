@@ -39,7 +39,8 @@ function M.get_last_segment(path) return path:match("/(%w+)$") end
 --- @param path string
 --- @return string
 function M.sanitize(path)
-    local ret = path:gsub("[^%w/]", "")
+    local no_traversal, _ = path:gsub("%.%.", "")
+    local ret, _ = no_traversal:gsub("[^%w/%.]", "")
     return ret
 end
 
