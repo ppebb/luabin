@@ -2,13 +2,13 @@ return {
     host = "localhost",
     port = 10003,
 
-    keyLength = 10,
+    key_length = 10,
 
-    maxLength = 400000,
+    max_length = 400000,
 
-    staticMaxAge = 86400,
+    static_max_age = 86400,
 
-    recompressStaticAssets = true,
+    recompress_static_assets = true,
 
     logging = {
         {
@@ -18,22 +18,23 @@ return {
         },
     },
 
-    keyGenerator = {
+    key_generator = {
         type = "phonetic",
     },
 
-    rateLimits = {
+    rate_limits = {
         categories = {
             normal = {
-                totalRequests = 500,
+                total_requests = 500,
                 every = 86400000,
             },
         },
     },
+
     storage = {
-        type = "postgres",
-        connectionUrl = "postgres://user:secret@localhost:port/dbname",
+        type = "file",
     },
+
     documents = {
         about = "./about.md",
     },

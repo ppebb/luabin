@@ -22,6 +22,8 @@ function M.path_combine(...)
     return res
 end
 
+--- @param path string
+--- @return boolean
 function M.file_exists(path)
     local f = io.open(path, "rb")
     if f then
@@ -30,8 +32,23 @@ function M.file_exists(path)
     return f ~= nil
 end
 
+--- @param path string
+--- @return string
+function M.get_last_segment(path) return path:match("/(%w+)$") end
+
+--- @param path string
+--- @return string
+function M.sanitize(path)
+    local ret = path:gsub("[^%w/]", "")
+    return ret
+end
+
 function M.starts_with(str, start) return string.sub(str, 1, #start) == start end
 
 function M.ends_with(str, ending) return ending == "" or string.sub(str, -#ending) == ending end
+
+function M.stdout_fmt(str, ...) io.stdout:write(string.format(str, ...)) end
+
+function M.stderr_fmt(str, ...) io.stderr:write(string.format(str, ...)) end
 
 return M

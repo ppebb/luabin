@@ -43,7 +43,7 @@ function M:match(server, headers, stream)
 
         if fd then
             local res_headers = http_headers.new()
-            io.stdout:write(string.format('Path "%s" resolved to static asset "%s"\n', req_path, path))
+            utils.stderr_fmt('Path "%s" resolved to static asset "%s"\n', req_path, path)
             res_headers:append(":status", "200")
             res_headers:append("content-type", mdb and mdb:file(path) or "application/octet-stream")
 
@@ -54,11 +54,9 @@ function M:match(server, headers, stream)
 
             fd:close()
         else
-            io.stderr:write(
-                string.format('Attemped to serve static file %s, but an error was encountered: "%s"', path, err)
-            )
+            utils.stderr_fmt('Attemped to serve static file %s, but an error was encountered: "%s"\n', path, err)
 
-            local status_code = (errno == ce.EACCESS) and 403 or 503
+            local status_code = (errno == ce.EACCESS) and "403" or "503"
             self:handle_err_code(status_code, server, headers, stream)
         end
     end
@@ -66,15 +64,17 @@ function M:match(server, headers, stream)
     for _, tbl in ipairs(self.routes) do
         if req_method == tbl.method and string.match(req_path, tbl.pattern) then
             local status_code = tbl.func(server, headers, stream)
-            self:handle_err_code(status_code, server, headers, stream)
+            if status_code ~= 0 and status_code ~= nil then
+                self:handle_err_code(status_code, server, headers, stream)
+            end
             return
         end
     end
 
-    local sanitized, _ = req_path:gsub("%.%.", "")
+    local sanitized = utils.sanitize(req_path)
 
-    for path, file in pairs(self.static_links) do
-        if path == sanitized then
+    for pattern, file in pairs(self.static_links) do
+        if string.match(sanitized, pattern) then
             serve_file(file)
             return
         end
@@ -89,8 +89,8 @@ function M:match(server, headers, stream)
         end
     end
 
-    io.stderr:write(string.format("Unable to match %s request for %s\n", req_method, req_path))
-    self:handle_err_code(404, server, headers, stream)
+    utils.stderr_fmt("Unable to match %s request for %s\n", req_method, req_path)
+    self:handle_err_code("404", server, headers, stream)
 end
 
 function M:head(pattern, func) table.insert(self.routes, { method = "HEAD", pattern = pattern, func = func }) end
@@ -106,30 +106,29 @@ function M:add_static_path(directory)
         fd:close()
         table.insert(self.static_paths, directory)
     else
-        io.stderr:write(string.format('Unable to open directory "%s" to serve files from: "%s"\n', directory, err))
+        utils.stderr_fmt('Unable to open directory "%s" to serve files from: "%s"\n', directory, err)
     end
 end
 
-function M:link_static(req_path, file_path)
+function M:link_static(pattern, file_path)
     local fd, err = io.open(file_path, "r")
 
     if fd then
         fd:close()
-        self.static_links[req_path] = file_path
+        self.static_links[pattern] = file_path
     else
-        io.stderr:write(string.format('Unable to open file "%s" to link to path: "%s"\n', file_path, err))
+        utils.stderr_fmt('Unable to open file "%s" to link to path: "%s"\n', file_path, err)
     end
 end
 
 function M:error_page(int, func) self.error_pages[int] = func end
 
 function M.new()
-    local ret = {
-        routes = {},
-        static_paths = {},
-        static_links = {},
-        error_pages = {},
-    }
+    local ret = {}
+    ret.routes = {}
+    ret.static_paths = {}
+    ret.static_links = {}
+    ret.error_pages = {}
     return setmetatable(ret, M)
 end
 
