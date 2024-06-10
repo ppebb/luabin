@@ -34,7 +34,10 @@ function M:retrieve(key)
 
     local fd, err = io.open(path, "r")
     if fd then
-        return fd:read("*a")
+        local ret = fd:read("*a")
+        fd:close()
+
+        return ret
     else
         utils.stderr_fmt('Unable to read file "%s", error: "%s"\n', path, err)
         return nil

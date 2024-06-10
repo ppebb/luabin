@@ -65,10 +65,10 @@ router:get("/documents/%w+", function(a, b, c) document_handler:get(a, b, c) end
 router:head("/documents/%w+", function(a, b, c) document_handler:get(a, b, c) end)
 
 -- Match static files
-router:add_static_path("./front/dist")
+router:add_static_path("./front")
 
 -- Match index.html
-router:link_static("/%w*", "./front/dist/index.html")
+router:link_static("/%w*", "./front/index.html")
 
 local function reply(server, stream)
     local req_headers = assert(stream:get_headers())

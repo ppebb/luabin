@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+
+<head>
+    <title>ppeb's luabin</title>
+    <meta charset="utf-8" />
+    <link rel="stylesheet" type="text/css" href="application.css" />
+
+    <script type="text/javascript" src="application.js"></script>
+
+    <meta name="robots" content="noindex,nofollow" />
+
+    <script type="text/javascript">
+        function handlePop(event) {
+            var path = event.target.location.pathname;
+            if (path === '/')
+                newDocument();
+            else
+                loadDocument(path.substring(1, path.length));
+        };
+
+        setTimeout(function () {
+            window.onpopstate = function (event) {
+                try {
+                    handlePop(event)
+                }
+                catch (_) { }
+            };
+        }, 1000);
+
+        document.addEventListener("DOMContentLoaded", (_) => {
+            handlePop({target: window});
+        });
+    </script>
+</head>
+
+<body>
+    <ul id="messages"></ul>
+
+    <div id="container">
+        <div id="logo_container">
+            <a class="logo" href="/about.md"></a>
+        </div>
+        <div id="buttons_container">
+            <button class="save function button-picture">Save</button>
+            <button class="new function button-picture">New</button>
+            <button class="duplicate function button-picture">Duplicate & Edit</button>
+            <button class="raw function button-picture">Just Text</button>
+        </div>
+        <div id="shortcut_container" style="display:none;">
+            <div class="label"></div>
+            <div class="shortcut"></div>
+        </div>
+    </div>
+
+    <div id="linenos"></div>
+    <pre id="box" style="display:none;" tabindex="0"><code></code></pre>
+    <textarea spellcheck="false" style="display:none;"></textarea>
+</body>

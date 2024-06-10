@@ -39,17 +39,32 @@ function M.get_last_segment(path) return path:match("/(%w+)$") end
 --- @param path string
 --- @return string
 function M.sanitize(path)
-    local no_traversal, _ = path:gsub("%.%.", "")
-    local ret, _ = no_traversal:gsub("[^%w/%.]", "")
+    -- Weak sanitizer, only checks for traversals and restricts input to alphanumerical characters, single dots, and dashes
+    local no_traversal, _ = path:gsub("%.+", ".")
+    local ret, _ = no_traversal:gsub("[^%w/%.-]", "")
     return ret
 end
 
-function M.starts_with(str, start) return string.sub(str, 1, #start) == start end
+--- @param str string
+--- @param start string
+--- @return boolean
+function M.starts_with(str, start) return str:sub(1, #start) == start end
 
-function M.ends_with(str, ending) return ending == "" or string.sub(str, -#ending) == ending end
+--- @param str string
+--- @param ending string
+--- @return boolean
+function M.ends_with(str, ending) return ending == "" or str:sub(-#ending) == ending end
 
+--- @param str string
+--- @return string|nil
+function M.get_ext(str) return str:match("%.(%w+)$") end
+
+--- @param str string
+--- @param ... string
 function M.stdout_fmt(str, ...) io.stdout:write(string.format(str, ...)) end
 
+--- @param str string
+--- @param ... string
 function M.stderr_fmt(str, ...) io.stderr:write(string.format(str, ...)) end
 
 return M

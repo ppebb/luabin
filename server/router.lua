@@ -37,6 +37,19 @@ end
 function M:match(server, headers, stream)
     local req_method = headers:get(":method")
     local req_path = headers:get(":path")
+    local sanitized = utils.sanitize(req_path)
+
+    local function mime_from_ext(str)
+        local ext = utils.get_ext(str)
+
+        if ext == "js" then
+            return "text/javascript"
+        elseif ext == "css" then
+            return "text/css"
+        else
+            return nil
+        end
+    end
 
     local function serve_file(path)
         local fd, err, errno = io.open(path)
@@ -45,7 +58,10 @@ function M:match(server, headers, stream)
             local res_headers = http_headers.new()
             utils.stderr_fmt('Path "%s" resolved to static asset "%s"\n', req_path, path)
             res_headers:append(":status", "200")
-            res_headers:append("content-type", mdb and mdb:file(path) or "application/octet-stream")
+            res_headers:append(
+                "content-type",
+                mime_from_ext(path) or (mdb and mdb:file(path)) or "application/octet-stream"
+            )
 
             assert(stream:write_headers(res_headers, req_method == "HEAD"))
             if req_method ~= "HEAD" then
@@ -61,30 +77,54 @@ function M:match(server, headers, stream)
         end
     end
 
-    for _, tbl in ipairs(self.routes) do
-        if req_method == tbl.method and string.match(req_path, tbl.pattern) then
-            local status_code = tbl.func(server, headers, stream)
+    local function test_route(handler)
+        if req_method == handler.method and string.match(req_path, handler.pattern) then
+            local status_code = handler.func(server, headers, stream)
             if status_code ~= 0 and status_code ~= nil then
                 self:handle_err_code(status_code, server, headers, stream)
             end
-            return
+
+            return true
         end
+
+        return false
     end
 
-    local sanitized = utils.sanitize(req_path)
-
-    for _, dir in ipairs(self.static_paths) do
-        local path = utils.path_combine(dir, sanitized)
+    local function test_static(handler)
+        local path = utils.path_combine(handler.path, sanitized)
         local ft = lfs.attributes(path, "mode")
         if ft ~= "directory" and utils.file_exists(path) then
             serve_file(path)
-            return
+            return true
         end
+
+        return false
     end
 
-    for pattern, file in pairs(self.static_links) do
-        if string.match(sanitized, pattern) then
-            serve_file(file)
+    local function test_static_link(handler)
+        if string.match(sanitized, handler.pattern) then
+            serve_file(handler.path)
+            return true
+        end
+
+        return false
+    end
+
+    for _, handler in ipairs(self.handlers) do
+        if handler.type == "route" then
+            if test_route(handler) then
+                return
+            end
+        elseif handler.type == "directory" then
+            if test_static(handler) then
+                return
+            end
+        elseif handler.type == "static_link" then
+            if test_static_link(handler) then
+                return
+            end
+        else
+            utils.stderr_fmt('Unknown handler of type "%s"', handler.type)
             return
         end
     end
@@ -93,18 +133,24 @@ function M:match(server, headers, stream)
     self:handle_err_code("404", server, headers, stream)
 end
 
-function M:head(pattern, func) table.insert(self.routes, { method = "HEAD", pattern = pattern, func = func }) end
+function M:head(pattern, func)
+    table.insert(self.handlers, { type = "route", method = "HEAD", pattern = pattern, func = func })
+end
 
-function M:post(pattern, func) table.insert(self.routes, { method = "POST", pattern = pattern, func = func }) end
+function M:post(pattern, func)
+    table.insert(self.handlers, { type = "route", method = "POST", pattern = pattern, func = func })
+end
 
-function M:get(pattern, func) table.insert(self.routes, { method = "GET", pattern = pattern, func = func }) end
+function M:get(pattern, func)
+    table.insert(self.handlers, { type = "route", method = "GET", pattern = pattern, func = func })
+end
 
 function M:add_static_path(directory)
     local fd, err = io.open(directory, "r")
 
     if fd then
         fd:close()
-        table.insert(self.static_paths, directory)
+        table.insert(self.handlers, { type = "directory", path = directory })
     else
         utils.stderr_fmt('Unable to open directory "%s" to serve files from: "%s"\n', directory, err)
     end
@@ -115,7 +161,7 @@ function M:link_static(pattern, file_path)
 
     if fd then
         fd:close()
-        self.static_links[pattern] = file_path
+        table.insert(self.handlers, { type = "static_link", pattern = pattern, path = file_path })
     else
         utils.stderr_fmt('Unable to open file "%s" to link to path: "%s"\n', file_path, err)
     end
@@ -125,9 +171,7 @@ function M:error_page(int, func) self.error_pages[int] = func end
 
 function M.new()
     local ret = {}
-    ret.routes = {}
-    ret.static_paths = {}
-    ret.static_links = {}
+    ret.handlers = {}
     ret.error_pages = {}
     return setmetatable(ret, M)
 end
