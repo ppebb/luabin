@@ -1,6 +1,8 @@
 local M = {}
 M.__index = M
 
+local utils = require("server.utils")
+
 function M:gen_key()
     local ret = ""
 
@@ -12,10 +14,14 @@ function M:gen_key()
     return ret
 end
 
-function M.new(config)
+function M.new()
     local ret = {}
-    ret.len = os.getenv("KEY_GENERATOR_LENGTH") or config.key_generator.length or 10
-    ret.keyspace = config.key_generator.keyspace or "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789"
+    ret.len = utils.config_value_int("key_generator.length", "KEY_GENERATOR_LENGTH", 10)
+    ret.keyspace = utils.config_value_string(
+        "key_generator.keyspace",
+        "KEY_GENERATOR_KEYSPACE",
+        "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789"
+    )
     return setmetatable(ret, M)
 end
 

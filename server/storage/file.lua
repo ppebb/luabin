@@ -11,13 +11,13 @@ function M:store(key, text)
     local path = utils.path_combine(self.storage_path, hash)
 
     if utils.file_exists(path) then
-        utils.stderr_fmt('Unable to store to file "%s", file already exists\n', path)
+        utils.stderr_fmt("critical", 'Unable to store to file "%s", file already exists\n', path)
         return false
     end
 
     local fd, err = io.open(path, "w")
     if not fd then
-        utils.stderr_fmt('Unable to store to file "%s", error: %s\n', path, err)
+        utils.stderr_fmt("critical", 'Unable to store to file "%s", error: %s\n', path, err)
         return false
     end
 
@@ -39,18 +39,14 @@ function M:retrieve(key)
 
         return ret
     else
-        utils.stderr_fmt('Unable to read file "%s", error: "%s"\n', path, err)
+        utils.stderr_fmt("critical", 'Unable to read file "%s", error: "%s"\n', path, err)
         return nil
     end
 end
 
-function M.new(config)
+function M.new()
     local ret = {}
-    local storage_path = os.getenv("STORAGE_PATH") or config.storage.path
-    if not storage_path then
-        utils.stderr_fmt('Missing config option storage.path, defaulting to "./data"\n')
-        storage_path = "data"
-    end
+    local storage_path = utils.config_value_string("storage.path", "STORAGE_PATH", "./data")
 
     ret.storage_path = storage_path
 

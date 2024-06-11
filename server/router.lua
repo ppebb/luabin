@@ -16,6 +16,30 @@ do
     end
 end
 
+function M:load_file_cached(path)
+    local contents
+
+    if self.should_cache then
+        contents = self.cache[path]
+
+        if contents then
+            return contents
+        end
+    end
+
+    local fd, err, errno = io.open(path)
+
+    if fd then
+        contents = fd:read("*a")
+        self.cache[path] = contents
+        fd:close()
+
+        return contents
+    else
+        return nil, err, errno
+    end
+end
+
 function M:handle_err_code(code, server, headers, stream)
     if self.error_pages[code] then
         self.error_pages[code](server, headers, stream)
@@ -52,11 +76,11 @@ function M:match(server, headers, stream)
     end
 
     local function serve_file(path)
-        local fd, err, errno = io.open(path)
+        local contents, err, errno = self:load_file_cached(path)
 
-        if fd then
+        if contents then
             local res_headers = http_headers.new()
-            utils.stderr_fmt('Path "%s" resolved to static asset "%s"\n', req_path, path)
+            utils.stderr_fmt("info", 'Path "%s" resolved to static asset "%s"\n', req_path, path)
             res_headers:append(":status", "200")
             res_headers:append(
                 "content-type",
@@ -65,12 +89,15 @@ function M:match(server, headers, stream)
 
             assert(stream:write_headers(res_headers, req_method == "HEAD"))
             if req_method ~= "HEAD" then
-                assert(stream:write_body_from_file(fd))
+                assert(stream:write_chunk(contents, true))
             end
-
-            fd:close()
         else
-            utils.stderr_fmt('Attemped to serve static file %s, but an error was encountered: "%s"\n', path, err)
+            utils.stderr_fmt(
+                "critical",
+                'Attemped to serve static file "%s", but an error was encountered: "%s"\n',
+                path,
+                err
+            )
 
             local status_code = (errno == ce.EACCESS) and "403" or "503"
             self:handle_err_code(status_code, server, headers, stream)
@@ -124,12 +151,12 @@ function M:match(server, headers, stream)
                 return
             end
         else
-            utils.stderr_fmt('Unknown handler of type "%s"', handler.type)
+            utils.stderr_fmt("critical", 'Unknown handler of type "%s"', handler.type)
             return
         end
     end
 
-    utils.stderr_fmt("Unable to match %s request for %s\n", req_method, req_path)
+    utils.stderr_fmt("warning", "Unable to match %s request for %s\n", req_method, req_path)
     self:handle_err_code("404", server, headers, stream)
 end
 
@@ -152,7 +179,7 @@ function M:add_static_path(directory)
         fd:close()
         table.insert(self.handlers, { type = "directory", path = directory })
     else
-        utils.stderr_fmt('Unable to open directory "%s" to serve files from: "%s"\n', directory, err)
+        utils.stderr_fmt("warning", 'Unable to open directory "%s" to serve files from: "%s"\n', directory, err)
     end
 end
 
@@ -163,7 +190,7 @@ function M:link_static(pattern, file_path)
         fd:close()
         table.insert(self.handlers, { type = "static_link", pattern = pattern, path = file_path })
     else
-        utils.stderr_fmt('Unable to open file "%s" to link to path: "%s"\n', file_path, err)
+        utils.stderr_fmt("warning", 'Unable to open file "%s" to link to path: "%s"\n', file_path, err)
     end
 end
 
@@ -171,6 +198,8 @@ function M:error_page(int, func) self.error_pages[int] = func end
 
 function M.new()
     local ret = {}
+    ret.should_cache = utils.config_value_bool("cache_static_files", "CACHE_STATIC_FILES", true)
+    ret.cache = {}
     ret.handlers = {}
     ret.error_pages = {}
     return setmetatable(ret, M)

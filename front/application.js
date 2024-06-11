@@ -2,6 +2,16 @@ var title = "ppeb's luabin"
 var locked = null;
 var _key = "";
 
+var themes = [
+    "solarized-dark",
+    "tokyonight",
+];
+
+var names = [
+    "Solarized Dark",
+    "Tokyonight",
+];
+
 var buttons = [
     {
         match: "#buttons_container .save",
@@ -16,35 +26,46 @@ var buttons = [
     },
     {
         match: "#buttons_container .new",
-        label: 'New',
+        label: "New",
         shortcut: function(event) {
             return event.ctrlKey && event.keyCode === 78;
         },
-        shortcutDescription: 'control + n',
+        shortcutDescription: "control + n",
         action: function() {
             newDocument();
         }
     },
     {
         match: "#buttons_container .duplicate",
-        label: 'Duplicate & Edit',
+        label: "Duplicate & Edit",
         shortcut: function(event) {
             return locked && event.ctrlKey && event.keyCode === 68;
         },
-        shortcutDescription: 'control + d',
+        shortcutDescription: "control + d",
         action: function() {
-            newDocument(document.querySelector("#box code").innerHTML)
+            newDocument(document.querySelector("#box code").innerHTML);
         }
     },
     {
         match: "#buttons_container .raw",
-        label: 'Just Text',
+        label: "Just Text",
         shortcut: function(event) {
-            return event.ctrlKey && event.shiftKey && event.keyCode === 82;
+            return event.ctrlKey && event.shiftKey && event.keyCode === 74;
         },
-        shortcutDescription: 'control + shift + r',
+        shortcutDescription: "control + j",
         action: function() {
-            window.location.href = '/raw/' + _key;
+            window.location.href = "/raw/" + _key;
+        }
+    },
+    {
+        match: "#buttons_container .theme",
+        label: "Change Theme",
+        shortcut: function(event) {
+            return event.ctrlKey && event.keyCode === 67;
+        },
+        shortcutDescription: "control + c",
+        action: function() {
+            nextTheme();
         }
     },
 ];
@@ -57,17 +78,49 @@ function setupButtons() {
     for (var i = 0; i < buttons.length; i++)
         configureButton(buttons[i]);
 
+    document.body.onkeydown = function(event) {
+        for (var i = 0; i < buttons.length; i++) {
+            var opts = buttons[i];
+            var button = document.querySelector(opts.match)
+
+            if (button.classList.contains("enabled") && opts.shortcut && opts.shortcut(event)) {
+                event.preventDefault();
+                opts.action();
+
+                return;
+            }
+        }
+    }
+
     setup = true;
 }
 
+var pointer = null;
 function configureButton(opts) {
     var button = document.querySelector(opts.match);
 
-    button.onclick = (function(event) {
+    if (!pointer)
+        pointer = document.querySelector("#pointer");
+
+    button.onclick = function(event) {
         event.preventDefault();
         if (button.classList.contains("enabled"))
             opts.action();
-    })
+    };
+
+    button.onmouseenter = function(_) {
+        document.querySelector("#shortcut_container .label").innerHTML = opts.label;
+        document.querySelector("#shortcut_container .shortcut").innerHTML = opts.shortcutDescription || "";
+        document.querySelector("#shortcut_container").style.display = "block";
+
+        button.append(pointer);
+        pointer.style.display = "";
+    };
+
+    button.onmouseleave = function(_) {
+        document.querySelector("#shortcut_container").style.display = "none";
+        pointer.remove();
+    };
 }
 
 function enableButtons(buttonList) {
@@ -87,6 +140,67 @@ function enableButtons(buttonList) {
 
         button.classList.remove("enabled");
     }
+}
+
+var currentIdx = null;
+function nextTheme() {
+    return applyTheme((currentIdx + 1) % themes.length);
+}
+
+function loadStoredTheme() {
+    var savedTheme = localStorage.getItem("theme")
+
+    if (!savedTheme)
+        return false;
+
+    var idx = Number.parseInt(savedTheme);
+
+    if (!idx)
+        return false;
+
+    return applyTheme(idx);
+}
+
+var prevThemeLink = null;
+function applyTheme(idx) {
+    if (currentIdx === idx)
+        return false;
+
+    if (idx < 0 || idx >= themes.length)
+        return false;
+
+    var head = document.getElementsByTagName("head")[0]
+
+    var name = themes[idx]
+    var prettyName = names[idx];
+
+    if (prevThemeLink)
+        prevThemeLink.remove();
+
+    var style = document.createElement("link");
+    style.href = `themes/${name}/${name}.css`;
+    style.id = "theme";
+    style.type = "text/css";
+    style.rel = "stylesheet";
+    head.append(style);
+
+    prevThemeLink = style;
+
+    var root = document.querySelector(":root");
+    root.style.setProperty("--logo-img", `url(themes/${name}/logo.png)`);
+    root.style.setProperty("--function-icons-img", `url(themes/${name}/function-icons.png)`);
+    root.style.setProperty("--pointer-img", `url(themes/${name}/hover-dropdown-tip.png)`);
+
+    buttons[4].label = "Change Theme<br/>" + prettyName;
+
+    if (document.querySelector("#shortcut_container").style.display == "block"
+        && document.querySelector("#shortcut_container .label").innerHTML.includes("Change Theme"))
+        document.querySelector(buttons[4].match).onmouseenter();
+
+    localStorage.setItem("theme", idx.toString());
+    currentIdx = idx;
+
+    return true;
 }
 
 function setTitle(extension) {
@@ -141,7 +255,7 @@ function lockDocument(text) {
     box.focus();
     document.querySelector("#box code").innerHTML = htmlEscape(text);
     document.querySelector("textarea").style.display = "none";
-    enableButtons(["new", "duplicate", "raw"]);
+    enableButtons(["new", "duplicate", "raw", "theme"]);
     addLineNumbers(text.split('\n').length);
 }
 
@@ -155,7 +269,7 @@ function unlockDocument(text) {
     textarea.style.display = "block";
     textarea.value = text;
     textarea.focus();
-    enableButtons(["new", "save"]);
+    enableButtons(["new", "save", "theme"]);
     removeLineNumbers();
 }
 

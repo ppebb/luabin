@@ -11,9 +11,9 @@ function M:retreive_document(path)
     local document = self.store:retrieve(key)
 
     if document then
-        utils.stdout_fmt('Retrieved document "%s"\n', key)
+        utils.stdout_fmt("info", 'Retrieved document "%s"\n', key)
     else
-        utils.stderr_fmt('Document not found "%s"\n', key)
+        utils.stderr_fmt("info", 'Document not found "%s"\n', key)
     end
 
     return key, document
@@ -80,7 +80,7 @@ function M:post(_, _, stream)
     local text = stream:get_body_as_string()
 
     if self.store:store(key, text) then
-        utils.stdout_fmt('Added document "%s"\n', key)
+        utils.stdout_fmt("info", 'Added document "%s"\n', key)
 
         res_headers:append(":status", "200")
         res_headers:append("content-type", "application/json")
@@ -88,7 +88,7 @@ function M:post(_, _, stream)
 
         assert(stream:write_body_from_string(cjson.encode({ key = key })))
     else
-        utils.stderr_fmt('Error adding document "%s"\n', key)
+        utils.stderr_fmt("critical", 'Error adding document "%s"\n', key)
 
         res_headers:append(":status", "500")
         res_headers:append("content-type", "application/json")

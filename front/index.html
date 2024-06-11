@@ -28,6 +28,8 @@
         }, 1000);
 
         document.addEventListener("DOMContentLoaded", (_) => {
+            if (!loadStoredTheme())
+                applyTheme(0);
             handlePop({target: window});
         });
     </script>
@@ -37,6 +39,7 @@
     <ul id="messages"></ul>
 
     <div id="container">
+        <div id="pointer" style="display:none"></div>
         <div id="logo_container">
             <a class="logo" href="/about.md"></a>
         </div>
@@ -45,6 +48,7 @@
             <button class="new function button-picture">New</button>
             <button class="duplicate function button-picture">Duplicate & Edit</button>
             <button class="raw function button-picture">Just Text</button>
+            <button class="theme function button-picture">Change Theme</button>
         </div>
         <div id="shortcut_container" style="display:none;">
             <div class="label"></div>

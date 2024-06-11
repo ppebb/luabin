@@ -36,6 +36,7 @@ do
     local storage_name = env("STORAGE_TYPE") or config.storage.type
     if not storage_name then
         utils.stderr_fmt(
+            "critical",
             "No storage type configured! Please select one using config.lua or the STORAGE_TYPE environment variable\n"
         )
         os.exit(1, true)
@@ -46,7 +47,11 @@ do
     if ok then
         storage = store.new(config)
     else
-        utils.stderr_fmt('Unable to find storage type "%s", please correct your configuration\n', storage_name)
+        utils.stderr_fmt(
+            "critical",
+            'Unable to find storage type "%s", please correct your configuration\n',
+            storage_name
+        )
         os.exit(1, true)
     end
 end
@@ -76,6 +81,7 @@ local function reply(server, stream)
 
     -- Log request to stdout
     utils.stdout_fmt(
+        "debug",
         '[%s] "%s %s HTTP/%g"  "%s" "%s"\n',
         os.date("%d/%b/%Y:%H:%M:%S %z"),
         req_method or "",
@@ -97,7 +103,7 @@ local server = assert(http_server.listen({
 assert(server:listen())
 do
     local bound_port = select(3, server:localname())
-    utils.stdout_fmt("Now listening on port %d\n", bound_port)
+    utils.stdout_fmt("info", "Now listening on port %d\n", bound_port)
 end
 
 assert(server:loop())
