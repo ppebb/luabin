@@ -8,6 +8,6 @@
     --shortcut-container-bg: #1a1b26;
     --messages: #fff;
     --shortcut-container: #c4dce3;
-    --message-info: rgba(23, 62, 72, 0.8);
-    --message-error: rgba(102, 8, 0, 0.8);
+    --message-info: #13141c;
+    --message-error: #8c4351;
 }

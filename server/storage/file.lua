@@ -2,53 +2,53 @@ local M = {}
 M.__index = M
 
 local lfs = require("lfs")
-local md5 = require("md5")
 local utils = require("server.utils")
 
---- @return boolean
-function M:store(key, text)
-    local hash = md5.sumhexa(key)
-    local path = utils.path_combine(self.storage_path, hash)
+function M:expire_documents()
+    for file in lfs.dir(self.storage_path) do
+        if file ~= "." and file ~= ".." then
+            local full_path = utils.path_combine(self.storage_path, file)
+            local attr = lfs.attributes(full_path)
 
-    if utils.file_exists(path) then
-        utils.stderr_fmt("critical", 'Unable to store to file "%s", file already exists\n', path)
-        return false
+            if os.time() - attr.modification > self.expire_seconds then
+                utils.stdout_fmt("info", 'Removed expired file "%s"\n', full_path)
+                os.remove(full_path)
+                os.remove(full_path .. "-lang")
+            end
+        end
     end
-
-    local fd, err = io.open(path, "w")
-    if not fd then
-        utils.stderr_fmt("critical", 'Unable to store to file "%s", error: %s\n', path, err)
-        return false
-    end
-
-    assert(fd:write(text))
-    fd:close()
-
-    return true
 end
 
---- @return string|nil
-function M:retrieve(key)
-    local hash = md5.sumhexa(key)
-    local path = utils.path_combine(self.storage_path, hash)
-
-    local fd, err = io.open(path, "r")
-    if fd then
-        local ret = fd:read("*a")
-        fd:close()
-
-        return ret
-    else
-        utils.stderr_fmt("critical", 'Unable to read file "%s", error: "%s"\n', path, err)
-        return nil
+--- @return boolean
+function M:store(key, text, lang)
+    if not key or not text or not lang then
+        return false
     end
+
+    local path = utils.path_combine(self.storage_path, key)
+    local lang_path = path .. "-lang"
+
+    return utils.write_file(path, text) and utils.write_file(lang_path, lang)
+end
+
+--- @return string|nil, string|nil
+function M:retrieve(key)
+    if not key then
+        return nil, nil
+    end
+
+    local path = utils.path_combine(self.storage_path, key)
+    local lang_path = path .. "-lang"
+
+    return utils.read_file(path), utils.read_file(lang_path)
 end
 
 function M.new()
     local ret = {}
-    local storage_path = utils.config_value_string("storage.path", "STORAGE_PATH", "./data")
+    local storage_path = utils.config_value("storage.path", "./data")
 
     ret.storage_path = storage_path
+    ret.expire_seconds = utils.config_value("storage.expiry_seconds", 2592000)
 
     lfs.mkdir(storage_path)
 

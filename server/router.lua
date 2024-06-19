@@ -4,16 +4,16 @@ M.__index = M
 local ce = require("cqueues.errno")
 local http_headers = require("http.headers")
 local lfs = require("lfs")
+local magic = require("libmagic")
 local utils = require("server.utils")
+local zlib = require("http.zlib")
+
+-- TODO: zlib compression?
 
 local mdb
 do
-    -- If available, use libmagic https://github.com/mah0x211/lua-libmagic
-    local ok, magic = pcall(require, "libmagic")
-    if ok then
-        mdb = magic.open(magic.MIME_TYPE + magic.PRESERVE_ATIME + magic.RAW + magic.ERROR)
-        assert(mdb:load())
-    end
+    mdb = magic.open(magic.MIME_TYPE + magic.PRESERVE_ATIME + magic.RAW + magic.ERROR)
+    assert(mdb:load())
 end
 
 function M:load_file_cached(path)
@@ -120,7 +120,7 @@ function M:match(server, headers, stream)
     local function test_static(handler)
         local path = utils.path_combine(handler.path, sanitized)
         local ft = lfs.attributes(path, "mode")
-        if ft ~= "directory" and utils.file_exists(path) then
+        if ft ~= "directory" and (self.cache[path] or utils.file_exists(path)) then
             serve_file(path)
             return true
         end
@@ -129,7 +129,7 @@ function M:match(server, headers, stream)
     end
 
     local function test_static_link(handler)
-        if string.match(sanitized, handler.pattern) then
+        if string.match(sanitized, handler.pattern) and not string.match(sanitized, handler.antipattern) then
             serve_file(handler.path)
             return true
         end
@@ -183,12 +183,15 @@ function M:add_static_path(directory)
     end
 end
 
-function M:link_static(pattern, file_path)
+function M:link_static(pattern, antipattern, file_path)
     local fd, err = io.open(file_path, "r")
 
     if fd then
         fd:close()
-        table.insert(self.handlers, { type = "static_link", pattern = pattern, path = file_path })
+        table.insert(
+            self.handlers,
+            { type = "static_link", pattern = pattern, antipattern = antipattern, path = file_path }
+        )
     else
         utils.stderr_fmt("warning", 'Unable to open file "%s" to link to path: "%s"\n', file_path, err)
     end
@@ -198,7 +201,7 @@ function M:error_page(int, func) self.error_pages[int] = func end
 
 function M.new()
     local ret = {}
-    ret.should_cache = utils.config_value_bool("cache_static_files", "CACHE_STATIC_FILES", true)
+    ret.should_cache = utils.config_value("cache_static_files", true)
     ret.cache = {}
     ret.handlers = {}
     ret.error_pages = {}

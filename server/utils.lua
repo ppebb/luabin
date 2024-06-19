@@ -1,7 +1,11 @@
 local M = {}
 
 local config = require("server.config")
+local http_headers = require("http.headers")
 local getenv = os.getenv
+
+local log_method
+local log_path
 
 --- @param ... string
 --- @return string
@@ -36,15 +40,51 @@ function M.file_exists(path)
 end
 
 --- @param path string
+--- @param text string
+--- @return boolean
+function M.write_file(path, text)
+    if M.file_exists(path) then
+        M.stderr_fmt("critical", 'Unable to write to file "%s", file already exists\n', path)
+        return false
+    end
+
+    local fd, err = io.open(path, "w")
+    if not fd then
+        M.stderr_fmt("critical", 'Unable to store to file "%s", error: %s\n', path, err)
+        return false
+    end
+
+    assert(fd:write(text))
+    fd:close()
+
+    return true
+end
+
+--- @param path string
+--- @return string|nil
+function M.read_file(path)
+    local fd, err = io.open(path, "r")
+    if not fd then
+        M.stderr_fmt("critical", 'Unable to read file "%s", error: "%s"\n', path, err)
+        return nil
+    end
+
+    local ret = fd:read("*a")
+    fd:close()
+
+    return ret
+end
+
+--- @param path string
 --- @return string
 function M.get_last_segment(path) return path:match("/(%w+)$") end
 
 --- @param path string
 --- @return string
 function M.sanitize(path)
-    -- Weak sanitizer, only checks for traversals and restricts input to alphanumerical characters, single dots, and dashes
+    -- Weak sanitizer, only checks for traversals and restricts input to alphanumerical characters, . - and _
     local no_traversal, _ = path:gsub("%.+", ".")
-    local ret, _ = no_traversal:gsub("[^%w/%.-]", "")
+    local ret, _ = no_traversal:gsub("[^%w/%.-_]", "")
     return ret
 end
 
@@ -62,112 +102,196 @@ function M.ends_with(str, ending) return ending == "" or str:sub(-#ending) == en
 --- @return string|nil
 function M.get_ext(str) return str:match("%.(%w+)$") end
 
---- @param str string
---- @param ... string
-function M.stdout_fmt(severity, str, ...)
-    if config.logging.levels[severity] or severity == "critical" then
-        io.stdout:write(severity:upper() .. ": " .. string.format(str, ...))
-    end
-end
-
---- @param str string
---- @param ... string
-function M.stderr_fmt(severity, str, ...)
-    if config.logging.levels[severity] or severity == "critical" then
-        io.stderr:write(severity:upper() .. ": " .. string.format(str, ...))
-    end
-end
-
 --- @param name string
 --- @return any
-function M.config_from_string(name)
+local function config_from_string(name)
     local ret = config
 
     for segment in name:gmatch("([^%.]+)") do
+        ---@diagnostic disable-next-line: cast-local-type
         ret = ret[segment]
     end
 
     return ret
 end
 
--- TODO: Find a way to combine all three of the following methods. Maybe some metatable stuff?
-
 --- @param name string
---- @param env string
---- @param default number|nil
---- @return number|nil
-function M.config_value_int(name, env, default)
+--- @param forced boolean|nil
+function M.config_value(name, default, forced)
+    local env_sub, _ = name:gsub("%.", "_")
+    local env = env_sub:upper()
     local env_res = getenv(env)
 
     if env_res then
-        local num = tonumber(env_res)
+        local res = (type(default) == "number" and tonumber(env_res))
+            or (type(default) == "boolean" and env_res:lower() == "true")
+            or type(default) == "string" and env_res
 
-        if num then
+        if res then
             M.stdout_fmt("debug", "Config option %s resolved from environment variable %s\n", name, env)
-            return num
+            return res
         end
     end
 
-    local config_opt = M.config_from_string(name)
-    if type(config_opt) == "number" then
+    local config_opt = config_from_string(name)
+    if type(config_opt) == type(default) then
         return config_opt
     end
 
-    if default then
-        M.stdout_fmt("warning", "Config option %s not found, defaulting to %s\n", name, default or "nil")
+    if not forced then
+        M.stdout_fmt("warning", "Config option %s not found, defaulting to %s\n", name, default)
+        return default
     end
 
-    return default
+    return nil
 end
 
---- @param name string
---- @param env string
---- @param default boolean
+--- @param str string
+--- @return number[]
+function M.string_to_bytes(str) return { str:byte(1, -1) } end
+
+--- @param json string
+--- @param code string
+--- @param head boolean
+function M.respond_json(json, code, stream, head)
+    local res_headers = http_headers.new()
+
+    res_headers:append(":status", code)
+    res_headers:append("content-type", "application/json")
+    assert(stream:write_headers(res_headers, head))
+
+    if not head then
+        assert(stream:write_body_from_string(json))
+    end
+end
+
+--- @param tbl table
+--- @param value any
 --- @return boolean
-function M.config_value_bool(name, env, default)
-    local env_res = getenv(env)
-
-    if env_res then
-        local bool = env_res:lower() == "true" or false
-
-        M.stdout_fmt("debug", "Config option %s resolved from environment variable %s\n", name, env)
-        return bool
+function M.tbl_contains(tbl, value)
+    for _, v in pairs(tbl) do
+        if v == value then
+            return true
+        end
     end
 
-    local config_opt = M.config_from_string(name)
-    if type(config_opt) == "boolean" then
-        return config_opt
-    end
-
-    if default then
-        M.stdout_fmt("warning", "Config option %s not found, defaulting to %s\n", name, default or "nil")
-    end
-
-    return default
+    return false
 end
 
---- @param name string
---- @param env string
---- @param default string|nil
---- @return string|nil
-function M.config_value_string(name, env, default)
-    local env_res = getenv(env)
+--- @param iter function
+--- @return table
+function M.collect(iter)
+    local ret = {}
 
-    if env_res then
-        M.stdout_fmt("debug", "Config option %s resolved from environment variable %s\n", name, env)
-        return env_res
+    for key, value in iter do
+        if value then
+            ret[key] = value
+        else
+            table.insert(ret, key)
+        end
     end
 
-    local config_opt = M.config_from_string(name)
-    if type(config_opt) == "string" then
-        return config_opt
+    return ret
+end
+
+--- Applies `func` to each key-value pair in the table, providing the key and
+--- value as arguments
+--- @param tbl table
+--- @param func function
+--- @return table
+function M.transform(tbl, func)
+    local ret = {}
+
+    for k, v in pairs(tbl) do
+        ret[k] = func(k, v)
     end
 
-    if default then
-        M.stdout_fmt("warning", "Config option %s not found, defaulting to %s\n", name, default or "nil")
+    return ret
+end
+
+--- @param path string
+--- @param exit_on_failure boolean|nil
+--- @param str string|nil Used for stderr_fmt's str arg
+--- @param ... any Used for stderr_fmt's ... arg
+--- @return any|nil
+function M.p_require(path, exit_on_failure, str, ...)
+    local ok, module = pcall(require, path)
+
+    if ok then
+        return module
+    else
+        if str then
+            M.stderr_fmt("critical", str, ...)
+        end
+
+        if exit_on_failure then
+            os.exit(1, true)
+        end
+
+        return nil
+    end
+end
+
+--- @param str string
+--- @param ... any
+function M.stdout_fmt(severity, str, ...)
+    if config.logging.levels[severity] or severity == "critical" then
+        ---@diagnostic disable-next-line: need-check-nil
+        log_method(severity, string.format("%s: %s", severity:upper(), string.format(str, ...)))
+    end
+end
+
+--- @param str string
+--- @param ... any
+function M.stderr_fmt(severity, str, ...)
+    if config.logging.levels[severity] or severity == "critical" then
+        ---@diagnostic disable-next-line: need-check-nil
+        log_method(severity, string.format("%s: %s", severity:upper(), string.format(str, ...)))
+    end
+end
+
+local function log_console_color(severity, str)
+    local severity_to_color = {
+        ["critical"] = "31",
+        ["warning"] = "33",
+        ["info"] = "39",
+        ["debug"] = "36",
+    }
+
+    io.stdout:write(string.format("\27[%sm%s\27[0m", severity_to_color[severity], str))
+end
+
+local function log_console_no_color(_, str) io.stdout:write(str) end
+
+local fd = nil
+local function log_file(_, str)
+    if not fd then
+        ---@diagnostic disable-next-line: param-type-mismatch
+        local err
+        fd, err = io.open(log_path, "a+")
+
+        if not fd then
+            M.stderr_fmt("critical", 'Unable to open file "%s", error: "%s"\n', log_path, err)
+            os.exit(1, true)
+        end
     end
 
-    return default
+    fd:write(str)
+end
+
+function M.init()
+    local log_type = M.config_value("logging.type", "console")
+
+    if log_type == "console" then
+        if M.config_value("logging.colorize", true) then
+            log_method = log_console_color
+        else
+            log_method = log_console_no_color
+        end
+    elseif log_type == "file" then
+        log_method = log_file
+        log_path = M.config_value("logging.path", "./log")
+    end
 end
 
 return M

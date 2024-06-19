@@ -6,22 +6,34 @@
     <link rel="stylesheet" type="text/css" href="application.css" />
 
     <script type="text/javascript" src="application.js"></script>
+    <script type="text/javascript" src="tree-sitter.js"></script>
+    <script type="text/javascript" src="spark-md5.min.js"></script>
+    <script type="text/javascript" src="langs.js"></script>
 
     <meta name="robots" content="noindex,nofollow" />
 
     <script type="text/javascript">
+        const keyPattern = /^\/([^\.:]+)(?:[:\.]|$)/;
+        const extPattern = /(\.[^\:]+)(?::|$)/;
+        const langPattern = /:([^\.]+)(?:\.|$)/;
+
         function handlePop(event) {
             var path = event.target.location.pathname;
             if (path === '/')
                 newDocument();
-            else
-                loadDocument(path.substring(1, path.length));
+            else {
+                loadDocument(
+                    (path.match(keyPattern) || [])[1],
+                    (path.match(extPattern) || [])[1],
+                    (path.match(langPattern) || [])[1]
+                );
+            }
         };
 
         setTimeout(function () {
             window.onpopstate = function (event) {
                 try {
-                    handlePop(event)
+                    handlePop(event);
                 }
                 catch (_) { }
             };

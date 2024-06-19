@@ -16,12 +16,9 @@ end
 
 function M.new()
     local ret = {}
-    ret.len = utils.config_value_int("key_generator.length", "KEY_GENERATOR_LENGTH", 10)
-    ret.keyspace = utils.config_value_string(
-        "key_generator.keyspace",
-        "KEY_GENERATOR_KEYSPACE",
-        "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789"
-    )
+    ret.len = utils.config_value("key_generator.length", 10)
+    ret.keyspace =
+        utils.config_value("key_generator.keyspace", "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789")
     return setmetatable(ret, M)
 end
 

@@ -1,6 +1,8 @@
-var title = "ppeb's luabin"
+var title = "ppeb's luabin";
 var locked = null;
 var _key = "";
+var _lang = null;
+var _text = null;
 
 var themes = [
     "solarized-dark",
@@ -43,7 +45,7 @@ var buttons = [
         },
         shortcutDescription: "control + d",
         action: function() {
-            newDocument(document.querySelector("#box code").innerHTML);
+            newDocument(_text, _lang);
         }
     },
     {
@@ -61,9 +63,9 @@ var buttons = [
         match: "#buttons_container .theme",
         label: "Change Theme",
         shortcut: function(event) {
-            return event.ctrlKey && event.keyCode === 67;
+            return event.ctrlKey && event.keyCode === 84;
         },
-        shortcutDescription: "control + c",
+        shortcutDescription: "control + t",
         action: function() {
             nextTheme();
         }
@@ -81,7 +83,7 @@ function setupButtons() {
     document.body.onkeydown = function(event) {
         for (var i = 0; i < buttons.length; i++) {
             var opts = buttons[i];
-            var button = document.querySelector(opts.match)
+            var button = document.querySelector(opts.match);
 
             if (button.classList.contains("enabled") && opts.shortcut && opts.shortcut(event)) {
                 event.preventDefault();
@@ -90,7 +92,7 @@ function setupButtons() {
                 return;
             }
         }
-    }
+    };
 
     setup = true;
 }
@@ -148,7 +150,7 @@ function nextTheme() {
 }
 
 function loadStoredTheme() {
-    var savedTheme = localStorage.getItem("theme")
+    var savedTheme = localStorage.getItem("theme");
 
     if (!savedTheme)
         return false;
@@ -169,9 +171,9 @@ function applyTheme(idx) {
     if (idx < 0 || idx >= themes.length)
         return false;
 
-    var head = document.getElementsByTagName("head")[0]
+    var head = document.getElementsByTagName("head")[0];
 
-    var name = themes[idx]
+    var name = themes[idx];
     var prettyName = names[idx];
 
     if (prevThemeLink)
@@ -225,23 +227,40 @@ function addLineNumbers(count) {
 }
 
 function removeLineNumbers() {
-    document.querySelector("#linenos").innerHTML = "&gt;"
+    document.querySelector("#linenos").innerHTML = "&gt;";
 }
 
-function showMessage(text, severity) {
-    var msgBox = document.createElement("li")
+function showMessage(text, severity, cb) {
+    var msgBox = document.createElement("li");
     msgBox.classList.add(severity || "info");
-    msgBox.innerHTML = text;
+    msgBox.innerHTML = text + (cb ? "<br/>Left click to dismiss, right click confirm" : "");
 
-    document.querySelector("#messages").prepend(msgBox);
+    document.querySelector("#messages").append(msgBox);
 
-    msgBox.onclick = function(_) {
+    function close() {
         msgBox.classList.add("fade");
 
         setTimeout(function() {
-            document.querySelector("#messages").removeChild(msgBox);
+            msgBox.remove();
         }, 500);
     }
+
+    if (cb) {
+        msgBox.oncontextmenu = function(_) {
+            return false;
+        };
+
+        msgBox.onmousedown = function(event) {
+            close();
+
+            // Right click
+            if (event.button == 2) {
+                cb();
+            };
+        };
+    }
+    else
+        setTimeout(close, 4500);
 }
 
 function lockDocument(text) {
@@ -253,10 +272,11 @@ function lockDocument(text) {
     var box = document.querySelector("#box");
     box.style.display = "";
     box.focus();
+    _text = text;
     document.querySelector("#box code").innerHTML = htmlEscape(text);
     document.querySelector("textarea").style.display = "none";
     enableButtons(["new", "duplicate", "raw", "theme"]);
-    addLineNumbers(text.split('\n').length);
+    addLineNumbers(text.split("\n").length);
 }
 
 function unlockDocument(text) {
@@ -283,6 +303,7 @@ function saveDocument() {
         return false;
 
     async function wrapper() {
+        // TODO: Use json endpoint, provide language in request if present from duplicate & edit
         var response = await fetch("/documents", {
             method: "POST",
             body: text,
@@ -293,46 +314,152 @@ function saveDocument() {
 
         var json = await response.json();
         if (response.ok) {
-            lockDocument(document.querySelector("textarea").value);
+            lockDocument(text);
             _key = json.key;
-            window.history.pushState(null, title + " - " + json.key, "/" + json.key);
 
-            // TODO: do highlighting
+            if (!_lang)
+                _lang = json.lang;
+
+            window.history.pushState(null, title + " - " + json.key, `/${_key}:${_lang}`);
+            getParserFromlang(_lang, function(w) { highlight(text, w); });
         }
         else {
-            showMessage(json.message, "error")
+            showMessage(json.message, "error");
         }
     }
 
     wrapper();
 }
 
-function newDocument(text) {
+// BUG: Does not clear document when pressing new on an unlocked document
+function newDocument(text, lang) {
     setupButtons();
-    window.history.pushState(null, title, '/');
+    window.history.pushState(null, title, "/");
+
+    // When duplicating, whatever language has been set should be maintained
+    _lang = lang || null;
+    _text = text;
 
     setTitle();
     unlockDocument(text || "");
 }
 
-function loadDocument(key) {
+function loadDocument(key, ext, lang) {
+    console.log(`key: ${key}, ext: ${ext}, lang: ${lang}`);
+
     async function wrapper() {
         console.log("fetching document " + key);
-        var response = await fetch("/documents/" + key)
+        var response = await fetch("/documents/" + key);
 
         if (response.ok) {
             _key = key;
             console.log("fetched document " + key);
-            json = await response.json()
-            setTitle(key);
+            json = await response.json();
+
+            _lang = json.lang;
+
+            if (ext) {
+                var parser = ext_to_parser_map[ext];
+
+                if (parser)
+                    _lang = parser;
+            }
+
+            if (lang && allowed_parsers.includes(lang))
+                _lang = lang;
+
+            getParserFromlang(_lang, function(w) { highlight(json.data, w); });
+
+            setTitle(`${_key}:${_lang}`);
+            // TODO: Fix state being weird. Inconsistent formatting
+            window.history.pushState(null, title + " - " + json.key, `/${_key}:${_lang}`);
             lockDocument(json.data);
         }
         else {
-
             window.location.href = "/";
         }
     }
 
     wrapper();
     setupButtons();
+}
+
+async function highlight(text, wasm) {
+    const Parser = window.TreeSitter;
+    await Parser.init();
+    var parser = new Parser;
+
+    parser.setLanguage(await Parser.Language.load(wasm));
+    var tree = parser.parse(text);
+
+    console.log(tree);
+}
+
+// Cb will be called when/if the parser is resolved and downloaded
+async function getParserFromlang(lang, cb) {
+    var url = `/tree-sitter-${lang}.wasm`;
+
+    console.log("resolving parser for " + lang);
+
+    var cache = await caches.open("parser-cache");
+    var cached = await cache.match(url);
+
+    if (!cached) {
+        showMessage(
+            `${lang} parser not found in cache! Download?`, "info",
+            async function() {
+                var parser = await fetchParser(cache, lang, url);
+
+                if (parser)
+                    cb(parser);
+            }
+        );
+    }
+    else {
+        var arrayBuffer = await cached.arrayBuffer();
+        var md5 = localStorage.getItem(url + ".md5sum");
+
+        console.log(`${lang} parser retrieved from cache`);
+        cb(new Uint8Array(arrayBuffer));
+
+        var response = await fetch(url + ".md5sum");
+
+        if (response.ok) {
+            var serverSum = (await response.text()).trimEnd();
+
+            if (serverSum != md5) {
+                showMessage(
+                    `Checksum mismatch for cached ${lang} parser. Re-download?`, "info",
+                    async function() {
+                        var parser = await fetchParser(cache, lang, url);
+
+                        if (parser)
+                            cb(parser);
+                    }
+                );
+            }
+        }
+        else
+            showMessage(`Unable to retrieve hash for cached ${lang} parser, parser may be out of date!`, "info");
+    }
+}
+
+async function fetchParser(cache, lang, url) {
+    var response = await fetch(url);
+
+    if (response.ok) {
+        var clone = response.clone();
+
+        var arrayBuffer = await response.arrayBuffer();
+        var md5 = SparkMD5.ArrayBuffer.hash(arrayBuffer, false);
+
+        localStorage.setItem(url + ".md5sum", md5);
+        cache.put(url, clone);
+
+        return new Uint8Array(arrayBuffer);
+    }
+    else {
+        showMessage(`Unable to get parser for ${lang}, request failed with status ${response.status}, message: ${(await response.json()).message}`, "error");
+        return null;
+    }
 }
