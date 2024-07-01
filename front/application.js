@@ -110,7 +110,7 @@ function configureButton(opts) {
             opts.action();
     };
 
-    button.onmouseenter = function(_) {
+    button.onmouseenter = function() {
         document.querySelector("#shortcut_container .label").innerHTML = opts.label;
         document.querySelector("#shortcut_container .shortcut").innerHTML = opts.shortcutDescription || "";
         document.querySelector("#shortcut_container").style.display = "block";
@@ -119,7 +119,7 @@ function configureButton(opts) {
         pointer.style.display = "";
     };
 
-    button.onmouseleave = function(_) {
+    button.onmouseleave = function() {
         document.querySelector("#shortcut_container").style.display = "none";
         pointer.remove();
     };
@@ -149,6 +149,7 @@ function nextTheme() {
     return applyTheme((currentIdx + 1) % themes.length);
 }
 
+// eslint-disable-next-line no-unused-vars
 function loadStoredTheme() {
     var savedTheme = localStorage.getItem("theme");
 
@@ -280,8 +281,7 @@ function lockDocument(text) {
 }
 
 function unlockDocument(text) {
-    if (locked === false)
-        return;
+    // Always allow the document to be unlocked.
 
     locked = false;
     document.querySelector("#box").style.display = "none";
@@ -303,12 +303,11 @@ function saveDocument() {
         return false;
 
     async function wrapper() {
-        // TODO: Use json endpoint, provide language in request if present from duplicate & edit
-        var response = await fetch("/documents", {
+        var response = await fetch("/documents_json", {
             method: "POST",
-            body: text,
+            body: JSON.stringify({ lang: _lang, data: text }),
             headers: {
-                "Content-Type": "text/plain",
+                "Content-Type": "application/json",
             },
         });
 
@@ -344,6 +343,7 @@ function newDocument(text, lang) {
     unlockDocument(text || "");
 }
 
+// eslint-disable-next-line no-unused-vars
 function loadDocument(key, ext, lang) {
     console.log(`key: ${key}, ext: ${ext}, lang: ${lang}`);
 

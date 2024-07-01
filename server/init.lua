@@ -23,10 +23,10 @@ do
     local ok, gen = pcall(require, "server.keygen." .. gen_name)
 
     if ok then
-        keygen = gen.new(config)
+        keygen = gen.new()
     else
         utils.stderr_fmt("Unable to find key generator %s, defaulting to random\n", gen_name)
-        gen = require("server.keygen.random")
+        keygen = require("server.keygen.random").new()
     end
 end
 
@@ -59,8 +59,8 @@ router:get("/raw/%w+", function(a, b, c) document_handler:raw_get(a, b, c) end)
 router:head("/raw/%w+", function(a, b, c) document_handler:raw_get(a, b, c) end)
 
 -- Add documents
-router:post("/documents", function(a, b, c) document_handler:post(a, b, c) end)
 router:post("/documents_json", function(a, b, c) document_handler:post_json(a, b, c) end)
+router:post("/documents", function(a, b, c) document_handler:post(a, b, c) end)
 
 -- Get documents
 router:get("/documents/%w+", function(a, b, c) document_handler:get(a, b, c) end)

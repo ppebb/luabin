@@ -1417,7 +1417,7 @@ function M.resolve_lang(lang)
 
     -- The language is a valid parser
     local ts_lang = M.ts_to_enry(lang:lower():gsub(" ", ""))
-    if utils.tbl_contains(ts_parsers, ts_lang) then
+    if enry_lang_to_exts[ts_lang] then
         return ts_lang
     end
 
@@ -1427,6 +1427,8 @@ function M.resolve_lang(lang)
     if caps_ret then
         return caps_lang
     end
+
+    return nil
 end
 
 return M

@@ -80,7 +80,7 @@ function M:match(server, headers, stream)
 
         if contents then
             local res_headers = http_headers.new()
-            utils.stderr_fmt("info", 'Path "%s" resolved to static asset "%s"\n', req_path, path)
+            utils.stdout_fmt("info", 'Path "%s" resolved to static asset "%s"\n', req_path, path)
             res_headers:append(":status", "200")
             res_headers:append(
                 "content-type",
@@ -106,6 +106,7 @@ function M:match(server, headers, stream)
 
     local function test_route(handler)
         if req_method == handler.method and string.match(req_path, handler.pattern) then
+            utils.stdout_fmt("info", 'Path "%s" resolved to route "%s"\n', req_path, handler.pattern)
             local status_code = handler.func(server, headers, stream)
             if status_code ~= 0 and status_code ~= nil then
                 self:handle_err_code(status_code, server, headers, stream)

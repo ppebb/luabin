@@ -67,11 +67,6 @@ end
 function M:handle_post(text, lang, stream)
     local lang_ts = languages.enry_to_ts(lang)
 
-    if #text > self.max_len then
-        utils.respond_json("Document exceeds maximum length.", "400", stream, false)
-        return
-    end
-
     local key = self.keygen:gen_key()
 
     if self.store:store(key, text, lang_ts) then
@@ -85,14 +80,7 @@ function M:handle_post(text, lang, stream)
     end
 end
 
-function M:post(_, _, stream)
-    local text = stream:get_body_as_string()
-
-    if #text < 1 then
-        utils.respond_json(cjson.encode({ message = "Document length zero." }), "400", stream, false)
-        return
-    end
-
+local function lang_from_text(text)
     -- TODO: If multiple languages are returned by the first two, then use those to restrict the classifier
     local lang, safe = enry.get_language_by_shebang(text)
 
@@ -103,6 +91,24 @@ function M:post(_, _, stream)
     if not safe then
         lang, safe = enry.get_language_by_classifier(text, languages.allowed_langs())
     end
+
+    return lang, safe
+end
+
+function M:post(_, _, stream)
+    local text = stream:get_body_as_string()
+
+    if #text < 1 then
+        utils.respond_json(cjson.encode({ message = "Document length zero." }), "400", stream, false)
+        return
+    end
+
+    if #text > self.max_len then
+        utils.respond_json("Document exceeds maximum length.", "400", stream, false)
+        return
+    end
+
+    local lang, _ = lang_from_text(text)
 
     self:handle_post(text, lang, stream)
 end
@@ -120,6 +126,11 @@ function M:post_json(_, _, stream)
         )
     end
 
+    if #text > self.max_len then
+        utils.respond_json("Document exceeds maximum length.", "400", stream, false)
+        return
+    end
+
     if #text < 1 then
         utils.respond_json(cjson.encode({ message = "Document length zero." }), "400", stream, false)
         return
@@ -131,7 +142,7 @@ function M:post_json(_, _, stream)
         local lang = languages.resolve_lang(req.lang)
 
         if lang then
-            M:handle_post(req.data, lang, stream)
+            self:handle_post(req.data, lang, stream)
             return
         end
     end
@@ -146,7 +157,7 @@ function M:post_json(_, _, stream)
             lang, _ = enry.get_language_by_file(req.ext, text)
         end
 
-        M:handle_post(req.data, lang, stream)
+        self:handle_post(req.data, lang, stream)
         return
     end
 
@@ -165,8 +176,12 @@ function M:post_json(_, _, stream)
             lang, _ = enry.get_language_by_file(req.fname, text)
         end
 
-        M:handle_post(req.data, lang, stream)
+        self:handle_post(text, lang, stream)
+        return
     end
+
+    local lang, _ = lang_from_text(text)
+    self:handle_post(text, lang, stream)
 end
 
 function M.new(keygen, store)

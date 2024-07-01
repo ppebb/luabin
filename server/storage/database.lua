@@ -75,11 +75,16 @@ end
 --- Returns true on success, false on failure
 --- @return boolean
 --- @protected
-function M:connection_ctx(callback)
+function M:connection_ctx(callback, exit_on_failure)
     local connection, err = self.env:connect(self:connection_args())
 
     if not connection then
         utils.stderr_fmt("critical", 'Unable to connect to postgres database, error: "%s"\n', err)
+
+        if exit_on_failure then
+            os.exit(1, true)
+        end
+
         return false
     end
 
@@ -119,7 +124,7 @@ function M:create_table()
                 expiration int,
                 unique(key)
             );]])
-    end)
+    end, true)
 
     if err then
         utils.stderr_fmt("critical", 'Unable to create table in database, error: "%s"\n', err)
