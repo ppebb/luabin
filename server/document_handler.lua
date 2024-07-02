@@ -117,7 +117,7 @@ function M:post_json(_, _, stream)
     local req = cjson.decode(stream:get_body_as_string())
     local text = req.data
 
-    if not text then
+    if not text or text == cjson.null then
         utils.respond_json(
             cjson.encode({ message = "Malformed json request, missing data field" }),
             "400",
@@ -138,7 +138,7 @@ function M:post_json(_, _, stream)
 
     -- TODO: Length checks on fname, lang, ext, to ensure sending something overly long does not cause issues
 
-    if req.lang then
+    if req.lang and req.lang ~= cjson.null then
         local lang = languages.resolve_lang(req.lang)
 
         if lang then
@@ -147,7 +147,7 @@ function M:post_json(_, _, stream)
         end
     end
 
-    if req.ext then
+    if req.ext and req.lang ~= cjson.null then
         local lang
         local langs, safe = languages.langs_from_ext(req.ext)
 
@@ -161,7 +161,7 @@ function M:post_json(_, _, stream)
         return
     end
 
-    if req.fname then
+    if req.fname and req.lang ~= cjson.null then
         local lang
         local langs, safe
 

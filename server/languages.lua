@@ -1,7 +1,5 @@
 local M = {}
 
-local utils = require("server.utils")
-
 local enry_lang_to_exts = {
     -- Taken from go-enry's extensions.go file
     ["Ada"] = { ".adb", ".ada", ".ads" },
@@ -1361,6 +1359,7 @@ end
 --- @return string
 function M.ts_to_enry(parser)
     local ret = ts_to_enry_map[parser]
+
     if ret then
         return ret
     end
@@ -1410,6 +1409,10 @@ end
 --- @param lang string
 --- @return string|nil
 function M.resolve_lang(lang)
+    if not lang then
+        return nil
+    end
+
     -- The language is already valid
     if enry_lang_to_exts[lang] then
         return lang
