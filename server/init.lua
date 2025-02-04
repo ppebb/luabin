@@ -1,6 +1,15 @@
 local cqueues = require("cqueues")
 -- local ce = require("cqueues.errno")
-local config = require("server.config")
+local config_ok, config = pcall(require, "server.config")
+
+if not config_ok then
+    io.stderr:write(
+        "Unable to require server.config! Please ensure you see server/config-example.lua, modify it as needed, and place it at server/config.lua\n"
+    )
+
+    os.exit(1, true)
+end
+
 local cjson = require("cjson")
 local http_server = require("http.server")
 -- local http_headers = require("http.headers")

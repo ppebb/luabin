@@ -15,8 +15,7 @@ return {
 
     -- Should static files be cached. Disable when developing the frontend if
     -- you don't want to restart the server every time you make a change
-    -- cache_static_files = true,
-    cache_static_files = false,
+    cache_static_files = true,
 
     logging = {
         -- Set any of these to false to disable their associated output
@@ -56,7 +55,6 @@ return {
     -- WARNING: A VALID STORAGE CONFIGURATION IS REQUIRED
     storage = {
         -- Options: file, sql_db
-        -- type = "file",
         type = "sql_db",
         -- global options -------------------------------------------------------------------------
 
@@ -84,11 +82,9 @@ return {
 
         -- Each database expects slightly different login parameters, here are
         -- the universal three:
-        -- sourcename = "dbname" -- Might not be a database name depending on your driver, see above
-        sourcename = "luabin_test",
-        -- username = "dbuser", -- Optional depending on db configuration
-        username = "postgres",
-        -- password = "password133", -- Optional depending on db configuration
+        sourcename = "dbname", -- Might not be a database name depending on your driver, see above
+        username = "dbuser", -- Optional depending on db configuration
+        password = "password133", -- Optional depending on db configuration
 
         -- Postgres also allows for a hostname and a port
         -- hostname = "",
