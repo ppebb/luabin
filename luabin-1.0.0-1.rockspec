@@ -13,6 +13,7 @@ dependencies = {
     "luafilesystem",
     "libmagic",
     "cffi-lua",
+    "cqueues",
 }
 
 build = {

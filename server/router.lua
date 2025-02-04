@@ -6,7 +6,7 @@ local http_headers = require("http.headers")
 local lfs = require("lfs")
 local magic = require("libmagic")
 local utils = require("server.utils")
-local zlib = require("http.zlib")
+local zlib_ok, zlib = pcall(require, "http.zlib")
 
 -- TODO: zlib compression?
 

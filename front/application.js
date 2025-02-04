@@ -247,7 +247,7 @@ function showMessage(text, severity, cb) {
     }
 
     if (cb) {
-        msgBox.oncontextmenu = function(_) {
+        msgBox.oncontextmenu = function() {
             return false;
         };
 
@@ -350,33 +350,33 @@ function loadDocument(key, ext, lang) {
         console.log("fetching document " + key);
         var response = await fetch("/documents/" + key);
 
-        if (response.ok) {
-            _key = key;
-            console.log("fetched document " + key);
-            json = await response.json();
+        if (!response.ok) {
+            window.location.href = "/";
+            return;
+        }
 
-            _lang = json.lang;
+        _key = key;
+        console.log("fetched document " + key);
+        var json = await response.json();
 
-            if (ext) {
-                var parser = ext_to_parser_map[ext];
+        _lang = json.lang;
 
-                if (parser)
-                    _lang = parser;
-            }
+        if (ext) {
+            var parser = ext_to_parser_map[ext];
 
-            if (lang && allowed_parsers.includes(lang))
-                _lang = lang;
+            if (parser)
+                _lang = parser;
+        }
+
+        if (lang && allowed_parsers.includes(lang))
+            _lang = lang;
 
         getParserFromlang(_lang, function(q, w) { highlight(json.data, q, w); });
 
-            setTitle(`${_key}:${_lang}`);
-            // TODO: Fix state being weird. Inconsistent formatting
-            window.history.pushState(null, title + " - " + json.key, `/${_key}:${_lang}`);
-            lockDocument(json.data);
-        }
-        else {
-            window.location.href = "/";
-        }
+        setTitle(`${_key}:${_lang}`);
+        // TODO: Fix state being weird. Inconsistent formatting
+        window.history.pushState(null, title + " - " + json.key, `/${_key}:${_lang}`);
+        lockDocument(json.data);
     }
 
     wrapper();
