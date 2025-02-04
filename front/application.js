@@ -320,7 +320,7 @@ function saveDocument() {
                 _lang = json.lang;
 
             window.history.pushState(null, title + " - " + json.key, `/${_key}:${_lang}`);
-            getParserFromlang(_lang, function(w) { highlight(text, w); });
+            getParserFromlang(_lang, function(q, w) { highlight(text, q, w); });
         }
         else {
             showMessage(json.message, "error");
@@ -330,7 +330,6 @@ function saveDocument() {
     wrapper();
 }
 
-// BUG: Does not clear document when pressing new on an unlocked document
 function newDocument(text, lang) {
     setupButtons();
     window.history.pushState(null, title, "/");
@@ -368,7 +367,7 @@ function loadDocument(key, ext, lang) {
             if (lang && allowed_parsers.includes(lang))
                 _lang = lang;
 
-            getParserFromlang(_lang, function(w) { highlight(json.data, w); });
+        getParserFromlang(_lang, function(q, w) { highlight(json.data, q, w); });
 
             setTitle(`${_key}:${_lang}`);
             // TODO: Fix state being weird. Inconsistent formatting
@@ -389,7 +388,17 @@ async function highlight(text, wasm) {
     await Parser.init();
     var parser = new Parser;
 
-    parser.setLanguage(await Parser.Language.load(wasm));
+    var language = await Parser.Language.load(wasm);
+
+    parser.setLanguage(language);
+
+    var shouldInject = !!queries["injections"];
+    var shouldLocals = !!queries["locals"];
+
+    var highlightQuery = language.query(queries["highlights"]);
+    var injectionQuery = shouldInject & language.query(queries["injections"]);
+    var localsQuery = shouldLocals && language.query(queries["locals"]);
+
     var tree = parser.parse(text);
 
     console.log(tree);
@@ -401,6 +410,10 @@ async function getParserFromlang(lang, cb) {
 
     console.log("resolving parser for " + lang);
 
+    var queries = await fetchQueries(lang);
+    if (!queries)
+        return;
+
     var cache = await caches.open("parser-cache");
     var cached = await cache.match(url);
 
@@ -411,37 +424,40 @@ async function getParserFromlang(lang, cb) {
                 var parser = await fetchParser(cache, lang, url);
 
                 if (parser)
-                    cb(parser);
+                    cb(queries, parser);
             }
         );
+
+        return;
     }
-    else {
-        var arrayBuffer = await cached.arrayBuffer();
-        var md5 = localStorage.getItem(url + ".md5sum");
 
-        console.log(`${lang} parser retrieved from cache`);
-        cb(new Uint8Array(arrayBuffer));
+    var arrayBuffer = await cached.arrayBuffer();
+    var md5 = localStorage.getItem(url + ".md5sum");
 
-        var response = await fetch(url + ".md5sum");
+    console.log(`${lang} parser retrieved from cache`);
+    cb(queries, new Uint8Array(arrayBuffer));
 
-        if (response.ok) {
-            var serverSum = (await response.text()).trimEnd();
+    var response = await fetch(url + ".md5sum");
 
-            if (serverSum != md5) {
-                showMessage(
-                    `Checksum mismatch for cached ${lang} parser. Re-download?`, "info",
-                    async function() {
-                        var parser = await fetchParser(cache, lang, url);
+    if (!response.ok) {
+        showMessage(`Unable to retrieve hash for cached ${lang} parser, parser may be out of date!`, "info");
+        return;
+    }
 
-                        if (parser)
-                            cb(parser);
-                    }
-                );
-            }
+    var serverSum = (await response.text()).trimEnd();
+
+    if (serverSum == md5)
+        return;
+
+    showMessage(
+        `Checksum mismatch for cached ${lang} parser. Re-download?`, "info",
+        async function() {
+            var parser = await fetchParser(cache, lang, url);
+
+            if (parser)
+                cb(queries, parser);
         }
-        else
-            showMessage(`Unable to retrieve hash for cached ${lang} parser, parser may be out of date!`, "info");
-    }
+    );
 }
 
 async function fetchParser(cache, lang, url) {
@@ -462,4 +478,19 @@ async function fetchParser(cache, lang, url) {
         showMessage(`Unable to get parser for ${lang}, request failed with status ${response.status}, message: ${(await response.json()).message}`, "error");
         return null;
     }
+}
+
+async function fetchQueries(lang) {
+    console.log("retrieving queries for " + lang);
+
+    var url = `/queries/${lang}`;
+
+    var response = await fetch(url);
+
+    if (response.ok)
+        return await response.json();
+
+    showMessage(`Unable to get queries for ${lang}, request failed with status ${response.status}, message: ${(await response.json()).message}`, "error");
+
+    return null;
 }

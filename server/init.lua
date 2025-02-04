@@ -53,6 +53,7 @@ do
 end
 
 local document_handler = require("server.document_handler").new(keygen, storage)
+local queries_handler = require("server.queries").new()
 
 -- Retreive raw documents
 router:get("/raw/%w+", function(a, b, c) document_handler:raw_get(a, b, c) end)
@@ -65,6 +66,9 @@ router:post("/documents", function(a, b, c) document_handler:post(a, b, c) end)
 -- Get documents
 router:get("/documents/%w+", function(a, b, c) document_handler:get(a, b, c) end)
 router:head("/documents/%w+", function(a, b, c) document_handler:get(a, b, c) end)
+
+router:get("/queries/%w+", function(a, b, c) queries_handler:get(a, b, c) end)
+router:head("/queries/%w+", function(a, b, c) queries_handler:get(a, b, c) end)
 
 -- NOTE: This route may end up being useful in the future and thus is left in,
 -- but it would not work with the existing frontend caching system. Just

@@ -300,6 +300,9 @@ while [[ $# -gt 0 ]]; do
     --js)
         js=true
         ;;
+    --queries)
+        queries=true
+        ;;
     --silence-skips)
         silenceskips=true
         ;;
@@ -314,7 +317,13 @@ SCRIPT_DIR=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" &>/dev/null && pwd)
 TREE_SITTER="$SCRIPT_DIR/build/tree-sitter-linux-x64"
 CLONE_DIR="$SCRIPT_DIR/build/clone"
 WASM_DIR="$SCRIPT_DIR/build/wasm"
-ENRY_PATH="$SCRIPT_DIR/build/go-enry"
+ENRY_DIR="$SCRIPT_DIR/build/go-enry"
+NVIM_TS_DIR="$SCRIPT_DIR/build/nvim-treesitter"
+QUERIES_DIR="$SCRIPT_DIR/queries"
+
+if ! [[ -d "$SCRIPT_DIR/build" ]]; then
+    mkdir "$SCRIPT_DIR/build"
+fi
 
 if ! [[ -e "$TREE_SITTER" ]] || [[ -v treesitter ]]; then
     echo "Downloading latest tree-sitter binary"
@@ -351,11 +360,6 @@ fi
 if [[ -v wasmbuild ]]; then
     EMSDK_QUIET=1 source emsdk_env.sh
 
-    # if [ -e "$WASM_PATH" ]; then
-    #     rm -r "$WASM_PATH"
-    # fi
-
-    mkdir -p "$WASM_DIR"
     mkdir -p "$WASM_DIR"
     cd "$WASM_DIR"
 
@@ -472,12 +476,14 @@ if [[ -v js ]]; then
 fi
 
 if [[ -v enry ]]; then
-    if ! [ -e "$ENRY_PATH" ]; then
+    cd "$SCRIPT_DIR/build"
+
+    if ! [ -e "$ENRY_DIR" ]; then
         echo "Cloning go-enry"
         git clone "https://github.com/go-enry/go-enry.git" --depth 1
     else
         echo "Checking for enry updates"
-        cd "$ENRY_PATH"
+        cd "$ENRY_DIR"
         git restore .
         git pull
     fi
@@ -487,11 +493,66 @@ if [[ -v enry ]]; then
 func GetLanguageByClassifier(content []byte, candidates []string) (language string, safe bool) {
     return enry.GetLanguageByClassifier(content, candidates)
 }
-""" >>"$ENRY_PATH/shared/enry.go"
+""" >>"$ENRY_DIR/shared/enry.go"
 
     echo "Running make clean"
     make clean
 
     echo "Running make linux-shared"
     make linux-shared
+fi
+
+# Uses nvim-treesitter because they have a good, easy to use set of queries.
+if [[ -v queries ]]; then
+    cd "$SCRIPT_DIR/build"
+
+    if ! [ -e "$NVIM_TS_DIR" ]; then
+        echo "Cloning nvim-treesitter"
+        git clone "https://github.com/nvim-treesitter/nvim-treesitter.git" --depth 1
+    else
+        echo "Checking for enry updates"
+        cd "$NVIM_TS_DIR"
+        git restore .
+        git pull
+    fi
+
+    mkdir -p "$QUERIES_DIR"
+
+    cd "$NVIM_TS_DIR/queries"
+
+    for dir in ./*; do
+        lang=${dir%%\.\/}
+
+        cd "$dir"
+
+        out_file="$QUERIES_DIR/$lang.lua"
+
+        echo "Collecting queries for language $lang"
+
+        echo "return {" >"$out_file"
+
+        saved_queries=""
+        for query in ./*.scm; do
+            if ! [ -e "$query" ]; then
+                echo "Found query $query, but the file was not found..."
+                continue
+            fi
+
+            query_name=${query##\./}
+            query_name=${query_name%%\.scm}
+
+            saved_queries+="'$query_name' "
+
+            echo "[\"$query_name\"] = [===[" >>"$out_file"
+            query_contents=$(cat "$query")
+            echo "$query_contents" >>"$out_file"
+            echo "]===]," >>"$out_file"
+        done
+
+        echo "}" >>"$out_file"
+
+        echo "Saved queries ${saved_queries}for language $lang to $out_file"
+
+        cd "$NVIM_TS_DIR/queries"
+    done
 fi
