@@ -237,7 +237,7 @@ end
 function M.stdout_fmt(severity, str, ...)
     if config.logging.levels[severity] or severity == "critical" then
         ---@diagnostic disable-next-line: need-check-nil
-        log_method(severity, string.format("%s: %s", severity:upper(), string.format(str, ...)))
+        log_method(severity, string.format("%s: %s", severity:upper(), string.format(str, ...)), io.stdout)
     end
 end
 
@@ -246,11 +246,11 @@ end
 function M.stderr_fmt(severity, str, ...)
     if config.logging.levels[severity] or severity == "critical" then
         ---@diagnostic disable-next-line: need-check-nil
-        log_method(severity, string.format("%s: %s", severity:upper(), string.format(str, ...)))
+        log_method(severity, string.format("%s: %s", severity:upper(), string.format(str, ...)), io.stderr)
     end
 end
 
-local function log_console_color(severity, str)
+local function log_console_color(severity, str, handle)
     local severity_to_color = {
         ["critical"] = "31",
         ["warning"] = "33",
@@ -258,13 +258,13 @@ local function log_console_color(severity, str)
         ["debug"] = "36",
     }
 
-    io.stdout:write(string.format("\27[%sm%s\27[0m", severity_to_color[severity], str))
+    handle:write(string.format("\27[%sm%s\27[0m", severity_to_color[severity], str))
 end
 
-local function log_console_no_color(_, str) io.stdout:write(str) end
+local function log_console_no_color(_, str, handle) handle:write(str) end
 
 local fd = nil
-local function log_file(_, str)
+local function log_file(_, str, _)
     if not fd then
         ---@diagnostic disable-next-line: param-type-mismatch
         local err
