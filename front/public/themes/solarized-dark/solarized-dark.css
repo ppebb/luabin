@@ -1,0 +1,13 @@
+:root {
+    --background: #002B36;
+    --textarea: #fff;
+    --text-default: #839496;
+    --line-numbers: #7d7d7d;
+    --logo-container: #00222b;
+    --buttons-container: #08323c;
+    --shortcut-container-bg: #002B36;
+    --messages: #fff;
+    --shortcut-container: #c4dce3;
+    --message-info: rgba(23, 62, 72, 0.8);
+    --message-error: rgba(102, 8, 0, 0.8);
+}

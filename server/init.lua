@@ -133,12 +133,12 @@ router:head("/queries/%w+", function(a, b, c) queries_handler:get(a, b, c) end)
 -- end)
 
 -- Match static files
-router:add_static_path("./front")
+router:add_static_path("./front/dist")
 router:add_static_path("./build/wasm")
-router:add_static_path("./js")
+router:add_static_path("./deps")
 
 -- Match index.html
-router:link_static("/%w*", "tree%-sitter", "./front/index.html")
+router:link_static("/%w*", "tree%-sitter", "./front/dist/index.html")
 
 local function reply(server, stream)
     local req_headers = assert(stream:get_headers())

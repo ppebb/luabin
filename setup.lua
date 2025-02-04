@@ -5,7 +5,7 @@ local languages = require("server.languages")
 function M.gen_allowed_parsers()
     local allowed_parsers = languages.allowed_parsers()
 
-    local js = "const allowed_parsers=["
+    local js = "export const allowed_parsers:string[]=["
 
     for i, parser in ipairs(allowed_parsers) do
         js = js .. string.format('"%s"%s', parser, (i ~= #allowed_parsers and "," or ""))
@@ -49,7 +49,8 @@ function M.gen_ext_to_parser_map()
 
     table.sort(ordered_keys, function(a, b) return a < b end)
 
-    local js = "const ext_to_parser_map={"
+    local js = [[interface Dictionary<T> { [key: string]: T; }
+export const ext_to_parser_map:Dictionary<string>={]]
 
     for i, key in pairs(ordered_keys) do
         js = js .. string.format('"%s":"%s"%s', key, filtered_ext_map[key], (i ~= #ordered_keys and "," or ""))

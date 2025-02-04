@@ -297,8 +297,8 @@ while [[ $# -gt 0 ]]; do
     --enry)
         enry=true
         ;;
-    --js)
-        js=true
+    --gen-langs)
+        gen_langs=true
         ;;
     --queries)
         queries=true
@@ -338,7 +338,7 @@ if ! [[ -e "$TREE_SITTER" ]] || [[ -v treesitter ]]; then
 fi
 
 if [[ -v wasmclone ]]; then
-    echo "Recompiling parser wasm"
+    echo "Updating parser repositories"
 
     cd "$SCRIPT_DIR"
 
@@ -358,6 +358,8 @@ if [[ -v wasmclone ]]; then
 fi
 
 if [[ -v wasmbuild ]]; then
+    echo "Compiling parsers"
+
     EMSDK_QUIET=1 source emsdk_env.sh
 
     mkdir -p "$WASM_DIR"
@@ -404,20 +406,9 @@ if [[ -v wasmbuild ]]; then
 
     cd "$WASM_DIR"
 
-    if [ -e "tree-sitter.wasm" ]; then
-        rm tree-sitter.wasm
-    fi
-
-    echo "Downloading tree-sitter.wasm"
-    wget --quiet "https://github.com/tree-sitter/tree-sitter/releases/latest/download/tree-sitter.wasm"
-
     for blob in ./*.wasm; do
         md5sum "$blob" | cut -d' ' -f1 >"$blob.md5sum"
     done
-
-    echo "Creating wasm.tar.gz archive"
-    "cd $SCRIPT_DIR"
-    tar czf ./wasm.tar.gz ./build/wasm
 fi
 
 if [[ -v wasmcheck ]]; then
@@ -454,25 +445,11 @@ if [[ -v wasmcheck ]]; then
     done
 fi
 
-if [[ -v js ]]; then
+if [[ -v gen_langs ]]; then
     cd "$SCRIPT_DIR"
 
-    if [ -e js ]; then
-        rm -r js
-    fi
-
-    mkdir -p js
-    cd js
-
-    echo "Downloading tree-sitter.js"
-    wget --quiet "https://github.com/tree-sitter/tree-sitter/releases/latest/download/tree-sitter.js"
-
-    echo "Downloading spark-md5.min.js"
-    wget --quiet "https://raw.githubusercontent.com/satazor/js-spark-md5/master/spark-md5.min.js"
-
-    cd "$SCRIPT_DIR"
-    echo "Generating langs.js"
-    lua setup.lua >./js/langs.js
+    echo "Generating langs.ts"
+    lua setup.lua >./front/src/langs.ts
 fi
 
 if [[ -v enry ]]; then

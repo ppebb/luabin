@@ -1,0 +1,20 @@
+{
+  "name": "luabin-front",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc && vite build",
+    "preview": "vite preview"
+  },
+  "devDependencies": {
+    "typescript": "~5.6.2",
+    "vite": "^6.0.5"
+  },
+  "dependencies": {
+    "spark-md5": "^3.0.2",
+    "typescript-eslint": "^8.23.0",
+    "web-tree-sitter": "^0.25.1"
+  }
+}

@@ -3,12 +3,8 @@
 <head>
     <title>ppeb's luabin</title>
     <meta charset="utf-8" />
-    <link rel="stylesheet" type="text/css" href="application.css" />
-
-    <script type="text/javascript" src="application.js"></script>
-    <script type="text/javascript" src="tree-sitter.js"></script>
-    <script type="text/javascript" src="spark-md5.min.js"></script>
-    <script type="text/javascript" src="langs.js"></script>
+    <script type="module" src="/src/main.ts"></script>
+    <link rel="stylesheet" type="text/css" href="/src/application.css" />
 
     <meta name="robots" content="noindex,nofollow" />
 
@@ -20,9 +16,9 @@
         function handlePop(event) {
             var path = event.target.location.pathname;
             if (path === '/')
-                newDocument();
+                window.lbNewDocument();
             else {
-                loadDocument(
+                window.lbLoadDocument(
                     (path.match(keyPattern) || [])[1],
                     (path.match(extPattern) || [])[1],
                     (path.match(langPattern) || [])[1]
@@ -40,8 +36,8 @@
         }, 1000);
 
         document.addEventListener("DOMContentLoaded", (_) => {
-            if (!loadStoredTheme())
-                applyTheme(0);
+            if (!window.lbLoadStoredTheme())
+                window.lbApplyTheme(0);
             handlePop({target: window});
         });
     </script>
