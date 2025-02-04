@@ -30,7 +30,7 @@ declare global {
 interface ButtonOpts {
     match: string,
     label: string,
-    shortcut(_: KeyboardEvent): void,
+    shortcut(_: KeyboardEvent): boolean,
     shortcutDescription: string,
     action(): void,
 }
@@ -56,7 +56,7 @@ const buttons: ButtonOpts[] = [
     {
         match: "#buttons_container .new",
         label: "New",
-        shortcut: function(event: KeyboardEvent) {
+        shortcut: function(event: KeyboardEvent): boolean {
             return event.ctrlKey && event.key == "n";
         },
         shortcutDescription: "control + n",
@@ -67,8 +67,8 @@ const buttons: ButtonOpts[] = [
     {
         match: "#buttons_container .duplicate",
         label: "Duplicate & Edit",
-        shortcut: function(event: KeyboardEvent) {
-            return locked && event.ctrlKey && event.key == "d";
+        shortcut: function(event: KeyboardEvent): boolean {
+            return !!locked && event.ctrlKey && event.key == "d";
         },
         shortcutDescription: "control + d",
         action: function() {
@@ -78,7 +78,7 @@ const buttons: ButtonOpts[] = [
     {
         match: "#buttons_container .raw",
         label: "Just Text",
-        shortcut: function(event: KeyboardEvent) {
+        shortcut: function(event: KeyboardEvent): boolean {
             return event.ctrlKey && event.shiftKey && event.key == "j";
         },
         shortcutDescription: "control + j",
@@ -89,7 +89,7 @@ const buttons: ButtonOpts[] = [
     {
         match: "#buttons_container .theme",
         label: "Change Theme",
-        shortcut: function(event: KeyboardEvent) {
+        shortcut: function(event: KeyboardEvent): boolean {
             return event.ctrlKey && event.key == "t";
         },
         shortcutDescription: "control + t",
