@@ -144,10 +144,13 @@ local function reply(server, stream)
     local req_headers = assert(stream:get_headers())
     local req_method = req_headers:get(":method")
 
+    local _, ip, _ = stream.connection:peername()
+
     -- Log request to stdout
     utils.stdout_fmt(
         "debug",
-        '[%s] "%s %s HTTP/%g"  "%s" "%s"\n',
+        '%s [%s] "%s %s HTTP/%g"  "%s" "%s"\n',
+        ip,
         os.date("%d/%b/%Y:%H:%M:%S %z"),
         req_method or "",
         req_headers:get(":path") or "",
