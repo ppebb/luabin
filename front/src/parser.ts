@@ -1,41 +1,10 @@
-import { Language, Query, Parser } from "web-tree-sitter";
 import { SparkMD5 } from "spark-md5";
 import { showMessage } from "./main";
 
 export interface Queries {
     highlights: string,
-    injections: string | null,
-    locals: string | null
-}
-
-export async function highlight(text: string, queries: Queries, wasm: Uint8Array) {
-    await Parser.init();
-    const parser = new Parser;
-
-    const language = await Language.load(wasm);
-
-    parser.setLanguage(language);
-
-    const shouldInject = !!queries.injections;
-    const shouldLocals = !!queries.locals;
-
-    const highlightQuery = new Query(language, queries.highlights);
-    const injectionQuery = shouldInject ? new Query(language, queries.injections!) : null;
-    const localsQuery = shouldLocals ? new Query(language, queries.locals!) : null;
-
-    const tree = parser.parse(text);
-    if (!tree)
-        return;
-
-    const cursor = tree.walk();
-
-    const highlightMatches = highlightQuery.matches(cursor.currentNode);
-    const injectionMatches = injectionQuery?.matches(cursor.currentNode);
-    const localsMatches = localsQuery?.matches(cursor.currentNode);
-
-    console.log(highlightMatches);
-    console.log(injectionMatches);
-    console.log(localsMatches);
+    injections: string,
+    locals: string
 }
 
 // Cb will be called when/if the parser is resolved and downloaded

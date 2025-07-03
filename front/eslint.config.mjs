@@ -1,7 +1,7 @@
 // @ts-check
 
-import eslint from '@eslint/js';
-import tseslint from 'typescript-eslint';
+import eslint from "@eslint/js";
+import tseslint from "typescript-eslint";
 
 export default tseslint.config({
     files: ["**/*.ts"],
@@ -15,5 +15,10 @@ export default tseslint.config({
         "@typescript-eslint/no-unused-vars": ["error", { "argsIgnorePattern": "^_" }],
         semi: ["warn", "always"],
         quotes: ["warn", "double"],
+        "sort-imports": ["error", {
+            ignoreCase: true,
+            ignoreDeclarationSort: true,
+            ignoreMemberSort: false,
+        }],
     },
 });

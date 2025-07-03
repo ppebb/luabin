@@ -1,7 +1,8 @@
 import { enableButtons, setupButtons } from "./buttons.ts";
+import { highlight } from "./highlighter.ts";
+import { addLineNumbers, htmlEscape, removeLineNumbers, setTitle, showMessage, title } from "./main.ts";
 import { allowed_parsers, ext_to_parser_map } from "./langs.ts";
-import { addLineNumbers, removeLineNumbers, htmlEscape, setTitle, showMessage, title } from "./main.ts";
-import { Queries, getParserFromlang, highlight } from "./parser.ts";
+import { getParserFromlang, Queries } from "./parser.ts";
 
 export let _locked: boolean | null = null;
 export let _key: string = "";
