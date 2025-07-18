@@ -1,5 +1,5 @@
 import { enableButtons, setupButtons } from "./buttons.ts";
-import { highlight } from "./highlighter.ts";
+import { HtmlRenderer } from "./highlighter.ts";
 import { addLineNumbers, htmlEscape, removeLineNumbers, setTitle, showMessage, title } from "./main.ts";
 import { allowed_parsers, ext_to_parser_map } from "./langs.ts";
 import { getParserFromlang, Queries } from "./parser.ts";
@@ -38,6 +38,11 @@ function unlockDocument(text: string) {
     removeLineNumbers();
 }
 
+function parserCB(t: string, q: Queries, w: Uint8Array) {
+    // TODO: impl cb
+    new HtmlRenderer().render(t, q, w, () => { });
+}
+
 export function saveDocument() {
     if (_locked)
         return false;
@@ -65,7 +70,7 @@ export function saveDocument() {
                 _lang = json.lang;
 
             window.history.pushState(null, title + " - " + json.key, `/${_key}:${_lang}`);
-            getParserFromlang(_lang!, function(q: Queries, w: Uint8Array) { highlight(text, q, w); });
+            getParserFromlang(_lang!, function(q: Queries, w: Uint8Array) { parserCB(text, q, w); });
         }
         else {
             showMessage(json.message, "error", null);
@@ -116,7 +121,7 @@ export function loadDocument(key: string, ext: string | null, lang: string | nul
         if (lang && allowed_parsers.includes(lang))
             _lang = lang;
 
-        getParserFromlang(_lang!, function(q: Queries, w: Uint8Array) { highlight(json.data, q, w); });
+        getParserFromlang(_lang!, function(q: Queries, w: Uint8Array) { parserCB(json.data, q, w); });
 
         setTitle(`${_key}:${_lang}`);
         // TODO: Fix state being weird. Inconsistent formatting
